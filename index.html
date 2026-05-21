@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Memory Match</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <div class="topBar">
+        <div class="statBox">
+            <span class="label">Moves</span>
+            <span id="moves">0</span>
+        </div>
+
+        <div class="statBox">
+            <span class="label">Matches</span>
+            <span id="matches">0</span>
+        </div>
+    </div>
+
+    <h1>Memory Match</h1>
+
+    <div id="gameBoard"></div>
+
+    <button id="restartBtn">Restart Game</button>
+
+</div>
+
+<div id="winPopup">
+    <div class="popupContent">
+        <h2>🎉 You Won!</h2>
+        <p id="finalStats"></p>
+
+        <button onclick="restartGame()">
+            Play Again
+        </button>
+    </div>
+</div>
+
+<script src="game.js"></script>
+
+</body>
+</html>
