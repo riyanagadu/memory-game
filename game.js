@@ -8,36 +8,64 @@ const restartBtn = document.getElementById("restartBtn");
 const winPopup = document.getElementById("winPopup");
 const finalStats = document.getElementById("finalStats");
 
-// EMOJIS
-const emojis = [
+// ---------- ALL POSSIBLE EMOJIS ----------
+const allEmojis = [
     "🐶","🐱","🐸","🦊",
-    "🐵","🐼","🐯","🐨"
+    "🐵","🐼","🐯","🐨",
+    "🦁","🐷","🐰","🐹",
+    "🐻","🐔","🐙","🐧",
+    "🐢","🦋","🐞","🐳"
 ];
 
-// DUPLICATE
-let cards = [...emojis, ...emojis];
+// ---------- GAME STATE ----------
+let level = 1;
 
-// GAME STATE
+let moves = 0;
+let matches = 0;
+
 let firstCard = null;
 let secondCard = null;
 
 let lockBoard = false;
 
-let moves = 0;
-let matches = 0;
+let cards = [];
 
-// SHUFFLE
-function shuffleCards() {
-    cards.sort(() => Math.random() - 0.5);
+// ---------- HIGH SCORE ----------
+let bestScore = localStorage.getItem("memoryBest");
+
+if (!bestScore) {
+    bestScore = 9999;
 }
 
-// CREATE BOARD
-function createBoard() {
+// ---------- CREATE LEVEL ----------
+function setupLevel() {
 
     board.innerHTML = "";
 
-    shuffleCards();
+    // harder every level
+    let pairs = 4 + level;
 
+    // limit max pairs
+    if (pairs > 10) pairs = 10;
+
+    let selected = allEmojis.slice(0, pairs);
+
+    cards = [...selected, ...selected];
+
+    // shuffle
+    cards.sort(() => Math.random() - 0.5);
+
+    // responsive columns
+    let columns = 4;
+
+    if (pairs >= 8) {
+        columns = 5;
+    }
+
+    board.style.gridTemplateColumns =
+        `repeat(${columns}, 1fr)`;
+
+    // create cards
     cards.forEach(emoji => {
 
         const card = document.createElement("div");
@@ -54,7 +82,7 @@ function createBoard() {
     });
 }
 
-// FLIP
+// ---------- FLIP ----------
 function flipCard() {
 
     if (lockBoard) return;
@@ -65,6 +93,11 @@ function flipCard() {
 
     this.innerText = this.dataset.emoji;
 
+    // vibration on phone
+    if (navigator.vibrate) {
+        navigator.vibrate(30);
+    }
+
     if (!firstCard) {
         firstCard = this;
         return;
@@ -73,12 +106,13 @@ function flipCard() {
     secondCard = this;
 
     moves++;
+
     movesText.innerText = moves;
 
     checkMatch();
 }
 
-// MATCH CHECK
+// ---------- CHECK ----------
 function checkMatch() {
 
     const match =
@@ -91,7 +125,7 @@ function checkMatch() {
     }
 }
 
-// MATCH FOUND
+// ---------- MATCH ----------
 function handleMatch() {
 
     firstCard.classList.add("matched");
@@ -101,17 +135,33 @@ function handleMatch() {
     secondCard.removeEventListener("click", flipCard);
 
     matches++;
+
     matchesText.innerText = matches;
 
     resetTurn();
 
-    // WIN
-    if (matches === emojis.length) {
+    // LEVEL COMPLETE
+    if (matches === cards.length / 2) {
+
+        // save best score
+        if (moves < bestScore) {
+
+            bestScore = moves;
+
+            localStorage.setItem(
+                "memoryBest",
+                bestScore
+            );
+        }
 
         setTimeout(() => {
 
-            finalStats.innerText =
-                "Moves: " + moves;
+            finalStats.innerHTML = `
+                Level Complete!<br><br>
+                Level: ${level}<br>
+                Moves: ${moves}<br>
+                Best Score: ${bestScore}
+            `;
 
             winPopup.style.display = "flex";
 
@@ -119,7 +169,7 @@ function handleMatch() {
     }
 }
 
-// WRONG MATCH
+// ---------- WRONG MATCH ----------
 function unflipCards() {
 
     lockBoard = true;
@@ -137,7 +187,7 @@ function unflipCards() {
     }, 800);
 }
 
-// RESET TURN
+// ---------- RESET TURN ----------
 function resetTurn() {
 
     [firstCard, secondCard] = [null, null];
@@ -145,26 +195,47 @@ function resetTurn() {
     lockBoard = false;
 }
 
-// RESTART
-restartBtn.addEventListener("click", restartGame);
+// ---------- NEXT LEVEL ----------
+window.restartGame = function () {
 
-function restartGame() {
+    level++;
 
     moves = 0;
     matches = 0;
-
-    movesText.innerText = moves;
-    matchesText.innerText = matches;
 
     firstCard = null;
     secondCard = null;
 
     lockBoard = false;
 
+    movesText.innerText = moves;
+    matchesText.innerText = matches;
+
     winPopup.style.display = "none";
 
-    createBoard();
-}
+    setupLevel();
+};
 
-// START
-createBoard();
+// ---------- MANUAL RESTART ----------
+restartBtn.addEventListener("click", () => {
+
+    level = 1;
+
+    moves = 0;
+    matches = 0;
+
+    firstCard = null;
+    secondCard = null;
+
+    lockBoard = false;
+
+    movesText.innerText = moves;
+    matchesText.innerText = matches;
+
+    winPopup.style.display = "none";
+
+    setupLevel();
+});
+
+// ---------- START ----------
+setupLevel();

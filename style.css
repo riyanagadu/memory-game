@@ -201,3 +201,19 @@ button:active {
         font-size: 30px;
     }
 }
+
+.card {
+    animation: popIn 0.3s ease;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.7);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
