@@ -8,7 +8,7 @@ const restartBtn = document.getElementById("restartBtn");
 const winPopup = document.getElementById("winPopup");
 const finalStats = document.getElementById("finalStats");
 
-
+// ---------- AUDIO ----------
 let audioCtx;
 
 function getAudio() {
@@ -18,7 +18,43 @@ function getAudio() {
     return audioCtx;
 }
 
-// ---------- ALL POSSIBLE EMOJIS ----------
+function beep(type) {
+
+    const ctx = getAudio();
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === "flip") {
+        osc.frequency.value = 500;
+        gain.gain.value = 0.05;
+    }
+
+    if (type === "match") {
+        osc.frequency.value = 900;
+        gain.gain.value = 0.07;
+    }
+
+    if (type === "win") {
+        osc.frequency.value = 1200;
+        gain.gain.value = 0.1;
+    }
+
+    osc.type = "sine";
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+}
+
+// unlock mobile audio
+document.addEventListener("click", () => {
+    getAudio().resume();
+}, { once: true });
+
+// ---------- EMOJIS ----------
 const allEmojis = [
     "🐶","🐱","🐸","🦊",
     "🐵","🐼","🐯","🐨",
@@ -42,40 +78,28 @@ let cards = [];
 
 // ---------- HIGH SCORE ----------
 let bestScore = localStorage.getItem("memoryBest");
-
-if (!bestScore) {
-    bestScore = 9999;
-}
+if (!bestScore) bestScore = 9999;
 
 // ---------- CREATE LEVEL ----------
 function setupLevel() {
 
     board.innerHTML = "";
 
-    // harder every level
-    let pairs = 4 + level;
+    // FIXED LEVEL PROGRESSION
+    let pairs = 4 + (level - 1);
 
-    // limit max pairs
     if (pairs > 10) pairs = 10;
 
     let selected = allEmojis.slice(0, pairs);
 
     cards = [...selected, ...selected];
 
-    // shuffle
     cards.sort(() => Math.random() - 0.5);
 
-    // responsive columns
-    let columns = 4;
+    let columns = pairs >= 8 ? 5 : 4;
 
-    if (pairs >= 8) {
-        columns = 5;
-    }
+    board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 
-    board.style.gridTemplateColumns =
-        `repeat(${columns}, 1fr)`;
-
-    // create cards
     cards.forEach(emoji => {
 
         const card = document.createElement("div");
@@ -92,44 +116,6 @@ function setupLevel() {
     });
 }
 
-
-function beep(type) {
-
-    const ctx = getAudio();
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    // different sounds
-    if (type === "flip") {
-        osc.frequency.value = 500;
-        gain.gain.value = 0.05;
-    }
-
-    if (type === "match") {
-        osc.frequency.value = 900;
-        gain.gain.value = 0.07;
-    }
-
-    if (type === "win") {
-        osc.frequency.value = 1200;
-        gain.gain.value = 0.1;
-    }
-
-    osc.type = "sine";
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.12);
-}
-
-document.addEventListener("click", () => {
-    getAudio().resume();
-}, { once: true });
-
-
 // ---------- FLIP ----------
 function flipCard() {
 
@@ -138,15 +124,9 @@ function flipCard() {
     if (this === firstCard) return;
 
     this.classList.add("flipped");
-
     this.innerText = this.dataset.emoji;
 
     beep("flip");
-
-    // vibration on phone
-    if (navigator.vibrate) {
-        navigator.vibrate(30);
-    }
 
     if (!firstCard) {
         firstCard = this;
@@ -156,13 +136,12 @@ function flipCard() {
     secondCard = this;
 
     moves++;
-
     movesText.innerText = moves;
 
     checkMatch();
 }
 
-// ---------- CHECK ----------
+// ---------- MATCH CHECK ----------
 function checkMatch() {
 
     const match =
@@ -187,43 +166,14 @@ function handleMatch() {
     beep("match");
 
     matches++;
-
     matchesText.innerText = matches;
 
     resetTurn();
 
     checkWin();
-
-    // LEVEL COMPLETE
-    if (matches === cards.length / 2) {
-
-        // save best score
-        if (moves < bestScore) {
-
-            bestScore = moves;
-
-            localStorage.setItem(
-                "memoryBest",
-                bestScore
-            );
-        }
-
-        setTimeout(() => {
-
-            finalStats.innerHTML = `
-                Level Complete!<br><br>
-                Level: ${level}<br>
-                Moves: ${moves}<br>
-                Best Score: ${bestScore}
-            `;
-
-            winPopup.style.display = "flex";
-
-        }, 500);
-    }
 }
 
-// ---------- WRONG MATCH ----------
+// ---------- WRONG ----------
 function unflipCards() {
 
     lockBoard = true;
@@ -238,19 +188,45 @@ function unflipCards() {
 
         resetTurn();
 
-    }, 800);
+    }, 700);
 }
 
-// ---------- RESET TURN ----------
+// ---------- RESET ----------
 function resetTurn() {
 
     [firstCard, secondCard] = [null, null];
-
     lockBoard = false;
 }
 
+// ---------- WIN (ONLY SYSTEM) ----------
+function checkWin() {
+
+    if (matches === cards.length / 2) {
+
+        // save best score
+        if (moves < bestScore) {
+            bestScore = moves;
+            localStorage.setItem("memoryBest", bestScore);
+        }
+
+        beep("win");
+
+        setTimeout(() => {
+
+            finalStats.innerHTML = `
+                🎉 Level ${level} Complete!<br><br>
+                Moves: ${moves}<br>
+                Best Score: ${bestScore}
+            `;
+
+            winPopup.style.display = "flex";
+
+        }, 300);
+    }
+}
+
 // ---------- NEXT LEVEL ----------
-window.restartGame = function () {
+window.nextLevel = function () {
 
     level++;
 
@@ -259,38 +235,18 @@ window.restartGame = function () {
 
     firstCard = null;
     secondCard = null;
-
     lockBoard = false;
 
-    movesText.innerText = moves;
-    matchesText.innerText = matches;
+    movesText.innerText = 0;
+    matchesText.innerText = 0;
 
     winPopup.style.display = "none";
 
     setupLevel();
 };
 
-function checkWin() {
-
-    if (matches === cards.length / 2) {
-
-        clearInterval(timerInterval);
-
-        // WIN SOUND
-        beep("win");
-
-        setTimeout(() => {
-
-            alert(
-                `🎉 You Win!\n\nMoves: ${moves}\nTime: ${timer}s\nStreak: ${streak}`
-            );
-
-        }, 300);
-    }
-}
-
-// ---------- MANUAL RESTART ----------
-restartBtn.addEventListener("click", () => {
+// ---------- RESTART ----------
+window.restartGame = function () {
 
     level = 1;
 
@@ -299,16 +255,15 @@ restartBtn.addEventListener("click", () => {
 
     firstCard = null;
     secondCard = null;
-
     lockBoard = false;
 
-    movesText.innerText = moves;
-    matchesText.innerText = matches;
+    movesText.innerText = 0;
+    matchesText.innerText = 0;
 
     winPopup.style.display = "none";
 
     setupLevel();
-});
+};
 
 // ---------- START ----------
 setupLevel();
