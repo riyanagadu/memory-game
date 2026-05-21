@@ -8,6 +8,16 @@ const restartBtn = document.getElementById("restartBtn");
 const winPopup = document.getElementById("winPopup");
 const finalStats = document.getElementById("finalStats");
 
+
+let audioCtx;
+
+function getAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+}
+
 // ---------- ALL POSSIBLE EMOJIS ----------
 const allEmojis = [
     "🐶","🐱","🐸","🦊",
@@ -82,6 +92,44 @@ function setupLevel() {
     });
 }
 
+
+function beep(type) {
+
+    const ctx = getAudio();
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    // different sounds
+    if (type === "flip") {
+        osc.frequency.value = 500;
+        gain.gain.value = 0.05;
+    }
+
+    if (type === "match") {
+        osc.frequency.value = 900;
+        gain.gain.value = 0.07;
+    }
+
+    if (type === "win") {
+        osc.frequency.value = 1200;
+        gain.gain.value = 0.1;
+    }
+
+    osc.type = "sine";
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+}
+
+document.addEventListener("click", () => {
+    getAudio().resume();
+}, { once: true });
+
+
 // ---------- FLIP ----------
 function flipCard() {
 
@@ -92,6 +140,8 @@ function flipCard() {
     this.classList.add("flipped");
 
     this.innerText = this.dataset.emoji;
+
+    beep("flip");
 
     // vibration on phone
     if (navigator.vibrate) {
@@ -134,11 +184,15 @@ function handleMatch() {
     firstCard.removeEventListener("click", flipCard);
     secondCard.removeEventListener("click", flipCard);
 
+    beep("match");
+
     matches++;
 
     matchesText.innerText = matches;
 
     resetTurn();
+
+    checkWin();
 
     // LEVEL COMPLETE
     if (matches === cards.length / 2) {
@@ -215,6 +269,25 @@ window.restartGame = function () {
 
     setupLevel();
 };
+
+function checkWin() {
+
+    if (matches === cards.length / 2) {
+
+        clearInterval(timerInterval);
+
+        // WIN SOUND
+        beep("win");
+
+        setTimeout(() => {
+
+            alert(
+                `🎉 You Win!\n\nMoves: ${moves}\nTime: ${timer}s\nStreak: ${streak}`
+            );
+
+        }, 300);
+    }
+}
 
 // ---------- MANUAL RESTART ----------
 restartBtn.addEventListener("click", () => {
