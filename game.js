@@ -2,111 +2,70 @@ const board = document.getElementById("gameBoard");
 
 const movesText = document.getElementById("moves");
 const matchesText = document.getElementById("matches");
-const timerText = document.getElementById("timer");
-
-const streakText = document.getElementById("streakText");
 
 const restartBtn = document.getElementById("restartBtn");
-
-const themeSelect = document.getElementById("themeSelect");
-const difficultySelect = document.getElementById("difficultySelect");
 
 const winPopup = document.getElementById("winPopup");
 const finalStats = document.getElementById("finalStats");
 
-// ---------- THEMES ----------
-const themes = {
+// ---------- ALL POSSIBLE EMOJIS ----------
+const allEmojis = [
+    "🐶","🐱","🐸","🦊",
+    "🐵","🐼","🐯","🐨",
+    "🦁","🐷","🐰","🐹",
+    "🐻","🐔","🐙","🐧",
+    "🐢","🦋","🐞","🐳"
+];
 
-    animals: [
-        "🐶","🐱","🐸","🦊",
-        "🐵","🐼","🐯","🐨"
-    ],
+// ---------- GAME STATE ----------
+let level = 1;
 
-    cars: [
-        "🚗","🚓","🏎️","🚙",
-        "🚕","🚘","🚖","🚔"
-    ],
-
-    flags: [
-        "🇿🇦","🇺🇸","🇯🇵","🇧🇷",
-        "🇫🇷","🇮🇳","🇨🇦","🇩🇪"
-    ],
-
-    marvel: [
-        "🦸","🛡️","⚡","🕷️",
-        "🔨","💚","🏹","🤖"
-    ]
-};
-
-// ---------- GAME ----------
-let cards = [];
+let moves = 0;
+let matches = 0;
 
 let firstCard = null;
 let secondCard = null;
 
 let lockBoard = false;
 
-let moves = 0;
-let matches = 0;
+let cards = [];
 
-let streak = 0;
+// ---------- HIGH SCORE ----------
+let bestScore = localStorage.getItem("memoryBest");
 
-let timer = 0;
-let timerInterval = null;
-
-// ---------- TIMER ----------
-function startTimer() {
-
-    clearInterval(timerInterval);
-
-    timer = 0;
-
-    timerText.innerText = timer;
-
-    timerInterval = setInterval(() => {
-
-        timer++;
-
-        timerText.innerText = timer;
-
-    }, 1000);
+if (!bestScore) {
+    bestScore = 9999;
 }
 
-// ---------- CREATE BOARD ----------
-function createBoard() {
+// ---------- CREATE LEVEL ----------
+function setupLevel() {
 
     board.innerHTML = "";
 
-    const theme = themeSelect.value;
+    // harder every level
+    let pairs = 4 + level;
 
-    let emojis = [...themes[theme]];
+    // limit max pairs
+    if (pairs > 10) pairs = 10;
 
-    // difficulty
-    let pairs = 4;
+    let selected = allEmojis.slice(0, pairs);
 
-    if (difficultySelect.value === "medium") {
-        pairs = 6;
-    }
+    cards = [...selected, ...selected];
 
-    if (difficultySelect.value === "hard") {
-        pairs = 8;
-    }
-
-    emojis = emojis.slice(0, pairs);
-
-    cards = [...emojis, ...emojis];
-
+    // shuffle
     cards.sort(() => Math.random() - 0.5);
 
-    // grid
+    // responsive columns
     let columns = 4;
 
-    if (pairs >= 6) columns = 4;
-    if (pairs >= 8) columns = 4;
+    if (pairs >= 8) {
+        columns = 5;
+    }
 
     board.style.gridTemplateColumns =
         `repeat(${columns}, 1fr)`;
 
+    // create cards
     cards.forEach(emoji => {
 
         const card = document.createElement("div");
@@ -121,8 +80,6 @@ function createBoard() {
 
         board.appendChild(card);
     });
-
-    startTimer();
 }
 
 // ---------- FLIP ----------
@@ -136,10 +93,13 @@ function flipCard() {
 
     this.innerText = this.dataset.emoji;
 
+    // vibration on phone
+    if (navigator.vibrate) {
+        navigator.vibrate(30);
+    }
+
     if (!firstCard) {
-
         firstCard = this;
-
         return;
     }
 
@@ -152,28 +112,15 @@ function flipCard() {
     checkMatch();
 }
 
-// ---------- MATCH CHECK ----------
+// ---------- CHECK ----------
 function checkMatch() {
 
     const match =
         firstCard.dataset.emoji === secondCard.dataset.emoji;
 
     if (match) {
-
-        streak++;
-
-        streakText.innerText =
-            `🔥 Streak x${streak}`;
-
         handleMatch();
-
     } else {
-
-        streak = 0;
-
-        streakText.innerText =
-            `🔥 Streak x0`;
-
         unflipCards();
     }
 }
@@ -193,18 +140,27 @@ function handleMatch() {
 
     resetTurn();
 
-    // WIN
+    // LEVEL COMPLETE
     if (matches === cards.length / 2) {
 
-        clearInterval(timerInterval);
+        // save best score
+        if (moves < bestScore) {
+
+            bestScore = moves;
+
+            localStorage.setItem(
+                "memoryBest",
+                bestScore
+            );
+        }
 
         setTimeout(() => {
 
             finalStats.innerHTML = `
-                🎉 Completed!<br><br>
+                Level Complete!<br><br>
+                Level: ${level}<br>
                 Moves: ${moves}<br>
-                Time: ${timer}s<br>
-                Best Streak: ${streak}
+                Best Score: ${bestScore}
             `;
 
             winPopup.style.display = "flex";
@@ -213,7 +169,7 @@ function handleMatch() {
     }
 }
 
-// ---------- WRONG ----------
+// ---------- WRONG MATCH ----------
 function unflipCards() {
 
     lockBoard = true;
@@ -231,7 +187,7 @@ function unflipCards() {
     }, 800);
 }
 
-// ---------- RESET ----------
+// ---------- RESET TURN ----------
 function resetTurn() {
 
     [firstCard, secondCard] = [null, null];
@@ -239,12 +195,13 @@ function resetTurn() {
     lockBoard = false;
 }
 
-// ---------- RESTART ----------
+// ---------- NEXT LEVEL ----------
 window.restartGame = function () {
+
+    level++;
 
     moves = 0;
     matches = 0;
-    streak = 0;
 
     firstCard = null;
     secondCard = null;
@@ -254,18 +211,31 @@ window.restartGame = function () {
     movesText.innerText = moves;
     matchesText.innerText = matches;
 
-    streakText.innerText =
-        `🔥 Streak x0`;
+    winPopup.style.display = "none";
+
+    setupLevel();
+};
+
+// ---------- MANUAL RESTART ----------
+restartBtn.addEventListener("click", () => {
+
+    level = 1;
+
+    moves = 0;
+    matches = 0;
+
+    firstCard = null;
+    secondCard = null;
+
+    lockBoard = false;
+
+    movesText.innerText = moves;
+    matchesText.innerText = matches;
 
     winPopup.style.display = "none";
 
-    createBoard();
-};
-
-restartBtn.addEventListener("click", restartGame);
-
-themeSelect.addEventListener("change", restartGame);
-difficultySelect.addEventListener("change", restartGame);
+    setupLevel();
+});
 
 // ---------- START ----------
-restartGame();
+setupLevel();
